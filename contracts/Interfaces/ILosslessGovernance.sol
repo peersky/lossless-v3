@@ -21,7 +21,7 @@ interface ILssGovernance {
     function isReportSolved(uint256 _reportId) external view returns(bool);
     function reportResolution(uint256 _reportId) external view returns(bool);
     function getAmountReported(uint256 _reportId) external view returns(uint256);
-    
+
     function setDisputePeriod(uint256 _timeFrame) external;
     function addCommitteeMembers(address[] memory _members) external;
     function removeCommitteeMembers(address[] memory _members) external;
@@ -39,6 +39,8 @@ interface ILssGovernance {
     function setRevshareAdmin(address _address) external;
     function setRevsharePercentage(uint256 _amount) external;
     function revshareClaim(uint256 _reportId) external;
+    function recieveCompensationOnBehalf(address _onBehalf) external;
+    function setCompensationWallet(address _from, address _to) external;
 
     event NewCommitteeMembers(address[] _members);
     event CommitteeMembersRemoval(address[] _members);
@@ -61,5 +63,6 @@ interface ILssGovernance {
     event NewRevshareAdmin(address indexed _revshareAdmin);
     event NewRevsharePercentage(uint256 indexed _revsharePercentage);
     event RevshareClaim(ILERC20 indexed _token, uint256 indexed _reportID, uint256 indexed _amount);
+    event CompensationWalletChanged(address indexed _from, address indexed _to);
+    event CompensationRetrievalOnBehalf(address indexed _onBehalf, address indexed reciever, uint256 indexed _amount);
 }
-

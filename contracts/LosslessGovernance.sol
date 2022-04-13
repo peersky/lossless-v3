@@ -62,10 +62,12 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
     }
 
     mapping(uint256 => ProposedWallet) public proposedWalletOnReport;
+    mapping(uint256 => address) public compensationWallet;
 
     struct Compensation {
         uint256 amount;
         bool payed;
+        address receiver;
     }
 
     struct MemberVotesOnProposal {
@@ -103,19 +105,19 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
 
     function pause() public onlyLosslessPauseAdmin  {
         _pause();
-    }    
-    
+    }
+
     function unpause() public onlyLosslessPauseAdmin {
         _unpause();
     }
 
-    
+
     /// @notice This function gets the contract version
     /// @return Version of the contract
     function getVersion() external pure returns (uint256) {
         return 1;
     }
-    
+
     /// @notice This function determines if an address belongs to the Committee
     /// @param _account Address to be verified
     /// @return True if the address is a committee member
@@ -131,7 +133,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         return reportVotes[_reportId].voted[_voterIndex];
     }
 
-    /// @notice This function returns the resolution on a report by a team 
+    /// @notice This function returns the resolution on a report by a team
     /// @param _reportId Report number to be checked
     /// @param _voterIndex Voter Index to be checked
     /// @return True if it has voted
@@ -139,14 +141,14 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         return reportVotes[_reportId].votes[_voterIndex];
     }
 
-    /// @notice This function returns if report has been resolved    
+    /// @notice This function returns if report has been resolved
     /// @param _reportId Report number to be checked
     /// @return True if it has been solved
     function isReportSolved(uint256 _reportId) override public view returns(bool){
         return reportVotes[_reportId].resolved;
     }
 
-    /// @notice This function returns report resolution     
+    /// @notice This function returns report resolution
     /// @param _reportId Report number to be checked
     /// @return True if it has been resolved positively
     function reportResolution(uint256 _reportId) override public view returns(bool){
@@ -177,7 +179,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         revshareAdmin = _address;
         emit NewRevshareAdmin(revshareAdmin);
     }
-    
+
     /// @notice This function sets the share percentage
     /// @param _amount Percentage to share
     function setRevsharePercentage(uint256 _amount) override public onlyLosslessAdmin {
@@ -191,10 +193,10 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
     /// @notice This function returns if the majority of the commitee voted and the resolution of the votes
     /// @param _reportId Report number to be checked
     /// @return isMajorityReached result Returns True if the majority has voted and the true if the result is positive
-    function _getCommitteeMajorityReachedResult(uint256 _reportId) private view returns(bool isMajorityReached, bool result) {        
+    function _getCommitteeMajorityReachedResult(uint256 _reportId) private view returns(bool isMajorityReached, bool result) {
         Vote storage reportVote = reportVotes[_reportId];
         uint256 committeeLength = reportVote.committeeVotes.length;
-        uint256 committeeQuorum = (committeeMembersCount >> 2) + 1; 
+        uint256 committeeQuorum = (committeeMembersCount >> 2) + 1;
 
         uint256 agreeCount;
         for(uint256 i = 0; i < committeeLength;) {
@@ -213,13 +215,13 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         }
     }
 
-    /// @notice This function returns the amount reported on a report    
+    /// @notice This function returns the amount reported on a report
     /// @param _reportId Report id to check
     function getAmountReported(uint256 _reportId) override external view returns(uint256) {
         return reportVotes[_reportId].amountReported;
     }
 
-    /// @notice This function adds committee members    
+    /// @notice This function adds committee members
     /// @param _members Array of members to be added
     function addCommitteeMembers(address[] memory _members) override public onlyLosslessAdmin whenNotPaused {
         committeeMembersCount += _members.length;
@@ -233,11 +235,11 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         }
 
         emit NewCommitteeMembers(_members);
-    } 
+    }
 
-    /// @notice This function removes Committee members    
+    /// @notice This function removes Committee members
     /// @param _members Array of members to be added
-    function removeCommitteeMembers(address[] memory _members) override public onlyLosslessAdmin whenNotPaused {  
+    function removeCommitteeMembers(address[] memory _members) override public onlyLosslessAdmin whenNotPaused {
         require(committeeMembersCount >= _members.length, "LSS: Not enough members to remove");
 
         committeeMembersCount -= _members.length;
@@ -259,9 +261,9 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
     function losslessVote(uint256 _reportId, bool _vote) override public onlyLosslessAdmin whenNotPaused {
         require(!isReportSolved(_reportId), "LSS: Report already solved");
         require(isReportActive(_reportId), "LSS: report is not valid");
-        
+
         Vote storage reportVote = reportVotes[_reportId];
-        
+
         require(!reportVote.voted[LSS_TEAM_INDEX], "LSS: LSS already voted");
 
         reportVote.voted[LSS_TEAM_INDEX] = true;
@@ -289,7 +291,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         Vote storage reportVote = reportVotes[_reportId];
 
         require(!reportVote.voted[TOKEN_OWNER_INDEX], "LSS: owners already voted");
-        
+
         reportVote.voted[TOKEN_OWNER_INDEX] = true;
         reportVote.votes[TOKEN_OWNER_INDEX] = _vote;
 
@@ -312,7 +314,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         Vote storage reportVote = reportVotes[_reportId];
 
         require(!reportVote.committeeMemberVoted[msg.sender], "LSS: Member already voted");
-        
+
         reportVote.committeeMemberVoted[msg.sender] = true;
         reportVote.committeeVotes.push(_vote);
 
@@ -342,13 +344,13 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
 
 
         (,,,uint256 reportTimestamps,,,) = losslessReporting.getReportInfo(_reportId);
-        
+
         if (reportTimestamps + losslessReporting.reportLifetime() > block.timestamp) {
             _resolveActive(_reportId);
         } else {
             _resolveExpired(_reportId);
         }
-        
+
         reportVotes[_reportId].resolved = true;
         delete reportedAddresses;
 
@@ -358,7 +360,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
     /// @notice This function has the logic to solve a report that it's still active
     /// @param _reportId Report to be resolved
     function _resolveActive(uint256 _reportId) private {
-                
+
         (,address reportedAddress, address secondReportedAddress,, ILERC20 token, bool secondReports,) = losslessReporting.getReportInfo(_reportId);
 
         Vote storage reportVote = reportVotes[_reportId];
@@ -396,7 +398,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
             reportVote.resolution = false;
             _compensateAddresses(reportedAddresses);
         }
-    } 
+    }
 
     /// @notice This function has the logic to solve a report that it's expired
     /// @param _reportId Report to be resolved
@@ -421,11 +423,11 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         uint256 reportingAmount = losslessReporting.reportingAmount();
         uint256 compensationAmount = (reportingAmount * compensationPercentage) / HUNDRED;
 
-        
+
         for(uint256 i = 0; i < _addresses.length;) {
             address singleAddress = _addresses[i];
-            Compensation storage addressCompensation = compensation[singleAddress]; 
-            losslessController.resolvedNegatively(singleAddress);      
+            Compensation storage addressCompensation = compensation[singleAddress];
+            losslessController.resolvedNegatively(singleAddress);
             addressCompensation.amount += compensationAmount;
             addressCompensation.payed = false;
             unchecked{i++;}
@@ -448,7 +450,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
     function proposeWallet(uint256 _reportId, address _wallet) override public whenNotPaused {
         (,,,uint256 reportTimestamps, ILERC20 reportTokens,,) = losslessReporting.getReportInfo(_reportId);
 
-        require(msg.sender == losslessController.admin() || 
+        require(msg.sender == losslessController.admin() ||
                 msg.sender == reportTokens.admin(),
                 "LSS: Role cannot propose");
         require(reportTimestamps != 0, "LSS: Report does not exist");
@@ -513,7 +515,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
 
         proposedWallet.status = true;
 
-        require(reportTokens.transfer(msg.sender, proposedWallet.retrievalAmount), 
+        require(reportTokens.transfer(msg.sender, proposedWallet.retrievalAmount),
         "LSS: Funds retrieve failed");
 
         emit FundsRetrieval(_reportId, proposedWallet.retrievalAmount);
@@ -522,10 +524,10 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
     /// @notice This function determins if the refund wallet was accepted
     /// @param _reportId Report to propose the wallet
     function _determineProposedWallet(uint256 _reportId) private returns(bool){
-        
+
         ProposedWallet storage proposedWallet = proposedWalletOnReport[_reportId];
         uint256 agreementCount;
-        
+
         if (proposedWallet.committeeDisagree < (committeeMembersCount >> 2)+1 ){
             agreementCount += 1;
         }
@@ -537,7 +539,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         if (proposedWallet.tokenOwnersVote) {
             agreementCount += 1;
         }
-        
+
         if (agreementCount >= 2) {
             return true;
         }
@@ -560,7 +562,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
     function retrieveCompensation() override public whenNotPaused {
         require(!compensation[msg.sender].payed, "LSS: Already retrieved");
         require(compensation[msg.sender].amount != 0, "LSS: No retribution assigned");
-        
+
         compensation[msg.sender].payed = true;
 
         losslessReporting.retrieveCompensation(msg.sender, compensation[msg.sender].amount);
@@ -568,6 +570,9 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         emit CompensationRetrieval(msg.sender, compensation[msg.sender].amount);
 
         compensation[msg.sender].amount = 0;
+        if(compensation[msg.sender].receiver != address(0)){
+            compensation[msg.sender].receiver = address(0);
+        }
 
     }
 
@@ -608,7 +613,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
     /// @notice This function is for the Lossless to claim the rewards
     /// @param _reportId report worked on
     function losslessClaim(uint256 _reportId) override public whenNotPaused onlyLosslessAdmin {
-        require(reportResolution(_reportId), "LSS: Report solved negatively");   
+        require(reportResolution(_reportId), "LSS: Report solved negatively");
 
         Vote storage reportVote = reportVotes[_reportId];
 
@@ -624,19 +629,48 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         }
 
         reportVote.losslessPayed = true;
-        require(reportTokens.transfer(losslessController.admin(), amountToClaim), 
+        require(reportTokens.transfer(losslessController.admin(), amountToClaim),
         "LSS: Reward transfer failed");
 
         emit LosslessClaim(reportTokens, _reportId, amountToClaim);
     }
 
+    /// @notice This function allows admin to set compensation wallet other than reported address
+    /// @param _from reported address
+    /// @param _to compensation wallet
+    function setCompensationWallet(address _from, address _to) public override  onlyLosslessAdmin {
+        require(!compensation[_from].payed, "LSS: Already retrieved");
+        require(compensation[_from].amount != 0, "LSS: No retribution assigned");
+        compensation[_from].receiver = _to;
+        emit CompensationWalletChanged(_from, _to);
+    }
+
+    /// @notice This function allows authorized wallet to claim compensation on behalf of reported address
+    /// @param _onBehalf reported address
+    function recieveCompensationOnBehalf(address _onBehalf) public override {
+
+        // In case if smart contract does not implement recieveCompensationOnBehalf function
+        require(!compensation[_onBehalf].payed, "LSS: Already retrieved");
+        require(compensation[_onBehalf].amount != 0, "LSS: No retribution assigned");
+        require(compensation[_onBehalf].receiver == msg.sender, "LSS: Not authorized to recieve compensation on behalf");
+
+        compensation[_onBehalf].payed = true;
+
+        losslessReporting.retrieveCompensation(msg.sender, compensation[_onBehalf].amount);
+
+        emit CompensationRetrievalOnBehalf(_onBehalf, msg.sender, compensation[_onBehalf].amount);
+        compensation[_onBehalf].amount = 0;
+        compensation[_onBehalf].receiver = address(0);
+
+    }
+
     /// REVENUE SHARE
-        
+
     /// @notice This function is for the claim of the Shared revenue
     /// @param _reportId report worked on
     function revshareClaim(uint256 _reportId) override public whenNotPaused {
         require(msg.sender == revshareAdmin, "LSS: Must be revshareAdmin");
-        require(reportResolution(_reportId), "LSS: Report solved negatively");   
+        require(reportResolution(_reportId), "LSS: Report solved negatively");
 
         Vote storage reportVote = reportVotes[_reportId];
 
@@ -648,7 +682,7 @@ contract LosslessGovernance is ILssGovernance, Initializable, AccessControlUpgra
         uint256 amountToClaim = losslessReward * revsharePercent / HUNDRED;
 
         revsharePayed[_reportId] = true;
-        require(reportTokens.transfer(msg.sender, amountToClaim), 
+        require(reportTokens.transfer(msg.sender, amountToClaim),
         "LSS: Reward transfer failed");
 
         emit RevshareClaim(reportTokens, _reportId, amountToClaim);
